@@ -9,6 +9,7 @@ namespace ConsoleApplication1
     public class Product
     {
         [PrimaryKey]
+        [Field("ProductId")]
         public int Id { get; set; }
         public string Name { get; set; }
     }

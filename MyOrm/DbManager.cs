@@ -29,14 +29,84 @@ namespace MyOrm
 
         public void CreateTable<T>()
         {
-            foreach (PropertyDescriptor property in TypeDescriptor.GetProperties(typeof(T)))
+            var type = typeof(T);
+            var pk = getPrimaryKey(type);
+            var first = true;
+            var sb = new StringBuilder();
+            sb.AppendFormat("CREATE TABLE IF NOT EXISTS '{0}' (", type.Name);
+            foreach (var pi in type.GetProperties())
             {
-                foreach (var attribute in property.Attributes.Matches(PrimaryKeyAttribute.IsDefined()))
+                var fa = pi.GetCustomAttributes(typeof(FieldAttribute), false);
+                var field = pi.Name;
+                if (fa.Any())
                 {
-                    Console.WriteLine(attribute);
+                    field = ((FieldAttribute)fa[0]).Name;
                 }
-                Console.WriteLine(property.Name);
+
+                fa = pi.GetCustomAttributes(typeof(LengthAttribute), false);
+                var length = 255;
+                if (fa.Any())
+                {
+                    length = ((LengthAttribute)fa[0]).Length;
+                }
+
+                var typestr = "";
+                switch (pi.PropertyType.ToString())
+                {
+                    case "System.Int32":
+                        typestr = "INTEGER";
+                        break;
+                    case "System.String":
+                        typestr = "NVARCHAR(" + length + ")";
+                        break;
+                    case "System.Decimal":
+                        typestr = "DECIMAL(15,4)";
+                        break;
+                    case "System.Int64":
+                        typestr = "INTEGER";
+                        break;
+                    case "System.Boolean":
+                        typestr = "BOOLEAN";
+                        break;
+                    case "System.DateTime":
+                        typestr = "DATE";
+                        break;
+                }
+                if (pi.Name == pk)
+                {
+                    typestr += " PRIMARY KEY AUTOINCREMENT";
+                }
+
+                if (!first)
+                    sb.Append(",");
+                first = false;
+                sb.AppendFormat("\n'{0}' {1}", field, typestr);
             }
+            sb.Append(")");
+            Console.WriteLine(sb.ToString());
+
+            //var sql = "CREATE TABLE IF NOT EXISTS '{0}' ({1})";
+            //var pk = getPrimaryKey(type);
+
+            //foreach (PropertyDescriptor property in TypeDescriptor.GetProperties(typeof(T)))
+            //{
+
+            //    var attributes = property.Attributes;
+            //    foreach (var attribute in attributes)
+            //    {
+            //        if (attribute is PrimaryKeyAttribute)
+            //        {
+            //            Console.WriteLine("Primary key: {0}", property.Name);
+            //        }
+            //    }
+            //foreach (var attribute in property.Attributes.Contains(PrimaryKeyAttribute))
+            //{
+            //    Console.WriteLine(attribute);
+            //}
+            //Console.WriteLine(property.Name);
+            //}
+
+            //Console.WriteLine(getPrimaryKey(typeof(T)));
             //var type = typeof(T);
             //var pk = getPrimaryKey(type);
             //Console.WriteLine(pk);
@@ -56,8 +126,8 @@ namespace MyOrm
 
         public T GetById<T>(object id)
         {
-            var pk = getPrimaryKey(typeof(T));
-            var sql = string.Format("SELECT {0} FROM {1} WHERE {2}=@id");
+            var type = typeof(T);
+            var sql = string.Format("SELECT {0} FROM {1} WHERE {2}=@id", getFieldsString(type), getTableName(type), getPrimaryKey(type));
             using (var command = _connection.CreateCommand())
             {
                 command.CommandText = sql;
@@ -67,6 +137,16 @@ namespace MyOrm
                 //return getEntityObject<T>(reader);
             }
             return default(T);
+        }
+
+        private object getTableName(Type type)
+        {
+            return null;
+        }
+
+        private object getFieldsString(Type type)
+        {
+            return null;
         }
 
         private T getEntityObject<T>(IDataReader reader) where T : new()
@@ -100,7 +180,7 @@ namespace MyOrm
 
         //private string getFieldName(PropertyInfo pi)
         //{
-            
+
         //}
 
         private string getPrimaryKey(Type type)

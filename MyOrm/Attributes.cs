@@ -5,18 +5,8 @@ using System.Text;
 
 namespace MyOrm
 {
-    class Attributes
-    {
-    }
-
-    public class AutoincrementAttribute : Attribute
-    {
-
-    }
-
     public class PrimaryKeyAttribute : Attribute
     {
-
     }
 
     public class TableAttribute : Attribute
@@ -25,6 +15,24 @@ namespace MyOrm
         public TableAttribute(string name)
         {
             Name = name;
+        }
+    }
+
+    public class FieldAttribute : Attribute
+    {
+        public string Name { get; set; }
+        public FieldAttribute(string name)
+        {
+            Name = name;
+        }
+    }
+
+    public class LengthAttribute : Attribute
+    {
+        public int Length { get; set; }
+        public LengthAttribute(int length)
+        {
+            Length = length;
         }
     }
 }
