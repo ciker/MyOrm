@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SQLite;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace MyOrm
@@ -14,5 +15,11 @@ namespace MyOrm
             var connection = new SQLiteConnection(connectionString);
             return connection.OpenAndReturn();
         }
+
+        public static bool IsPrimaryKey(this PropertyInfo pi)
+        {
+            return pi.GetCustomAttributes(typeof(PrimaryKeyAttribute), false).Any();
+        }
+
     }
 }
