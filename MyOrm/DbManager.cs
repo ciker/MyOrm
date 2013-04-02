@@ -113,20 +113,20 @@ namespace MyOrm
                     foreach (var pi in type.GetProperties().Where(c=>c.GetCustomAttributes(typeof(FieldAttribute),false).Any()))
                     {
                         GetFieldName(pi);
-                        using (SQLiteConnection Conn = new SQLiteConnection("Data Source = " + mPathName))
-                        {
-                            Conn.Open();
+                        //using (SQLiteConnection Conn = new SQLiteConnection("Data Source = " + mPathName))
+                        //{
+                        //    Conn.Open();
 
-                            // Get the schema for the columns in the database.
-                            DataTable ColsTable = Conn.GetSchema("Columns");
+                        //    // Get the schema for the columns in the database.
+                        //    DataTable ColsTable = Conn.GetSchema("Columns");
 
-                            // Query the columns schema using SQL statements to work out if the required columns exist.
-                            bool IDExists = ColsTable.Select("COLUMN_NAME='ID' AND TABLE_NAME='Customers'").Length != 0;
-                            bool UNIQUEIDExists = ColsTable.Select("COLUMN_NAME='UNIQUEID' AND TABLE_NAME='Customers'").Length != 0;
-                            bool ElephantExists = ColsTable.Select("COLUMN_NAME='ELEPHANT' AND TABLE_NAME='Customers'").Length != 0;
+                        //    // Query the columns schema using SQL statements to work out if the required columns exist.
+                        //    bool IDExists = ColsTable.Select("COLUMN_NAME='ID' AND TABLE_NAME='Customers'").Length != 0;
+                        //    bool UNIQUEIDExists = ColsTable.Select("COLUMN_NAME='UNIQUEID' AND TABLE_NAME='Customers'").Length != 0;
+                        //    bool ElephantExists = ColsTable.Select("COLUMN_NAME='ELEPHANT' AND TABLE_NAME='Customers'").Length != 0;
 
-                            Conn.Close();
-                        }
+                        //    Conn.Close();
+                        //}
                     }
 
 
