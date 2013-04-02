@@ -12,6 +12,7 @@ namespace ConsoleApplication1
         [Field("ProductId")]
         public int Id { get; set; }
         [Field]
+        [NotNull]
         public string Name { get; set; }
         [Field]
         public decimal Price { get; set; }

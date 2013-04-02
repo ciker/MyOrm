@@ -7,6 +7,22 @@ namespace MyOrm
     {
     }
 
+    [AttributeUsage(AttributeTargets.Property)]
+    public class NotNullAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Property)]
+    public class DefaultAttribute : Attribute
+    {
+        public object Value { get; private set; }
+        public DefaultAttribute(object value)
+        {
+            Value = value;
+        }
+    }
+
+
     [AttributeUsage(AttributeTargets.Class)]
     public class TableAttribute : Attribute
     {
@@ -16,6 +32,8 @@ namespace MyOrm
             Name = name;
         }
     }
+
+
 
     [AttributeUsage(AttributeTargets.Property)]
     public class FieldAttribute : Attribute

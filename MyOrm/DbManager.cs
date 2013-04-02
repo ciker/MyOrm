@@ -12,9 +12,20 @@ namespace MyOrm
 {
     public class DbManager : IDisposable
     {
+        struct FieldInfo
+        {
+            public int Cid;
+            public string Name;
+            public string Type;
+            public int NotNull;
+            public object DefaultValue;
+            public int Pk;
+        }
+
         private readonly IDbConnection _connection;
 
         private static readonly Dictionary<string, string> TableDictionary = new Dictionary<string, string>();
+        private static readonly Dictionary<string, Dictionary<string, FieldInfo>> FieldDictionary = new Dictionary<string, Dictionary<string, FieldInfo>>();
 
         public DbManager(string connectionString)
         {
@@ -32,110 +43,94 @@ namespace MyOrm
         public void CreateTable<T>()
         {
             var type = typeof(T);
+
             var first = true;
             var sb = new StringBuilder();
-            sb.AppendFormat("CREATE TABLE IF NOT EXISTS {0} (", GetTableName(type));
-            foreach (var pi in type.GetProperties().Where(c => c.GetCustomAttributes(typeof(FieldAttribute), false).Any()))
+            sb.AppendFormat("CREATE TABLE IF NOT EXISTS {0} (", GetTableName(type).Quoted());
+            
+            foreach (var fi in GetFields(type))
             {
-                var field = GetFieldName(pi);
-                var length = GetLength(pi);
-
-                var typestr = "";
-                switch (pi.PropertyType.ToString())
-                {
-                    case "System.Int32":
-                        typestr = "INTEGER";
-                        break;
-                    case "System.String":
-                        typestr = "NVARCHAR(" + length + ")";
-                        break;
-                    case "System.Decimal":
-                        typestr = "DECIMAL(15,4)";
-                        break;
-                    case "System.Int64":
-                        typestr = "INTEGER";
-                        break;
-                    case "System.Boolean":
-                        typestr = "BOOLEAN";
-                        break;
-                    case "System.DateTime":
-                        typestr = "DATE";
-                        break;
-                }
-                if (pi.IsPrimaryKey())
-                {
-                    typestr += " PRIMARY KEY AUTOINCREMENT";
-                }
-
-                if (!first)
-                    sb.Append(",");
+                if (!first) { sb.Append(","); }
                 first = false;
-                sb.AppendFormat("\n{0} {1}", field, typestr);
+                sb.AppendFormat("\n{0} {1}{2}{3}",
+                                fi.Name.Quoted(),
+                                fi.Type,
+                                fi.NotNull == 1 ? " NOT NULL" : "",
+                                fi.Pk == 1 ? " PRIMARY KEY AUTOINCREMENT" : "");
             }
-            sb.Append(");");
+            sb.Append("\n);");
 
             Debug.WriteLine(sb.ToString());
 
-            using (var transaction = _connection.BeginTransaction())
-            using (var command = _connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = sb.ToString();
-                try
-                {
-                    command.ExecuteNonQuery();
-                    transaction.Commit();
-                }
-                catch (Exception exception)
-                {
-                    MessageBox.Show(exception.Message);
-                    transaction.Rollback();
-                }
-            }
+            _connection.Execute(sb.ToString());
         }
 
-        public void UpdateTable<T>() where T : class
+        private static IEnumerable<FieldInfo> GetFields(Type type)
         {
-            var type = typeof(T);
-            var first = true;
-            using (var transaction = _connection.BeginTransaction())
+            var nrow = 0;
+            return
+                (from pi in type.GetProperties().Where(c => c.GetCustomAttributes(typeof(FieldAttribute), false).Any())
+                 let fieldName = GetFieldName(pi)
+                 let fieldType = GetFieldType(pi)
+                 select new FieldInfo()
+                     {
+                         Cid = nrow++,
+                         Name = fieldName,
+                         Type = fieldType,
+                         NotNull = pi.IsNotNull() ? 1 : 0,
+                         Pk = pi.IsPrimaryKey() ? 1 : 0
+                     }).ToList();
+        }
+
+        private static string GetFieldType(PropertyInfo pi)
+        {
+            var fieldType = string.Empty;
+            switch (pi.PropertyType.ToString())
+            {
+                case "System.Int32":
+                    fieldType = "INTEGER";
+                    break;
+                case "System.String":
+                    var length = GetLength(pi);
+                    fieldType = "NVARCHAR(" + length + ")";
+                    break;
+                case "System.Decimal":
+                    fieldType = "DECIMAL(15,4)";
+                    break;
+                case "System.Int64":
+                    fieldType = "INTEGER";
+                    break;
+                case "System.Boolean":
+                    fieldType = "BOOLEAN";
+                    break;
+                case "System.DateTime":
+                    fieldType = "DATE";
+                    break;
+            }
+            return fieldType;
+        }
+
+        private List<FieldInfo> GetScheme(Type type)
+        {
             using (var command = _connection.CreateCommand())
             {
-                command.Transaction = transaction;
-                command.CommandText = "SELECT name FROM sqlite_master WHERE name=@name";
-                var param = command.CreateParameter();
-                param.ParameterName = "@name";
-                param.Value = GetTableName(type);
-                command.Parameters.Add(param);
+                command.CommandText = "PRAGMA table_info(" + GetTableName(type) + ")";
                 var reader = command.ExecuteReader();
-                if (reader.Read())
+                var schema = new List<FieldInfo>();
+                while (reader.Read())
                 {
-                    foreach (var pi in type.GetProperties().Where(c=>c.GetCustomAttributes(typeof(FieldAttribute),false).Any()))
-                    {
-                        GetFieldName(pi);
-                        //using (SQLiteConnection Conn = new SQLiteConnection("Data Source = " + mPathName))
-                        //{
-                        //    Conn.Open();
-
-                        //    // Get the schema for the columns in the database.
-                        //    DataTable ColsTable = Conn.GetSchema("Columns");
-
-                        //    // Query the columns schema using SQL statements to work out if the required columns exist.
-                        //    bool IDExists = ColsTable.Select("COLUMN_NAME='ID' AND TABLE_NAME='Customers'").Length != 0;
-                        //    bool UNIQUEIDExists = ColsTable.Select("COLUMN_NAME='UNIQUEID' AND TABLE_NAME='Customers'").Length != 0;
-                        //    bool ElephantExists = ColsTable.Select("COLUMN_NAME='ELEPHANT' AND TABLE_NAME='Customers'").Length != 0;
-
-                        //    Conn.Close();
-                        //}
-                    }
-
-
+                    var info = new FieldInfo
+                        {
+                            Cid = reader.GetInt32(reader.GetOrdinal("cid")),
+                            Name = reader.GetString(reader.GetOrdinal("name")),
+                            Type = reader.GetString(reader.GetOrdinal("type")),
+                            NotNull = reader.GetInt32(reader.GetOrdinal("notnull")),
+                            DefaultValue = reader.GetValue(reader.GetOrdinal("dflt_value")),
+                            Pk = reader.GetInt32(reader.GetOrdinal("pk"))
+                        };
+                    schema.Add(info);
                 }
-                else
-                {
-                    transaction.Rollback();
-                    CreateTable<T>();
-                }
+                return schema;
             }
         }
 
@@ -152,21 +147,26 @@ namespace MyOrm
 
         public IEnumerable<T> Select<T>() where T : class
         {
-            using (var command = _connection.CreateCommand())
+            var sql = string.Format("SELECT * FROM {0}", GetTableName(typeof(T)));
+            Debug.WriteLine(sql);
+            var reader = _connection.ExecuteReader(sql);
+            while (reader.Read())
             {
-                var sql = string.Format("SELECT * FROM {0}", GetTableName(typeof(T)));
-                Debug.WriteLine(sql);
-                command.CommandText = sql;
-                var reader = command.ExecuteReader();
-                while (reader.Read())
-                {
-                    var map = GetObjectMap<T>(reader);
-                    yield return map;
-                }
+                yield return GetObjectMap<T>(reader);
             }
         }
 
-        public T GetById<T>(object id)
+        public IEnumerable<T> Query<T>(string sql, params IDbDataParameter[] parameters) where T : class
+        {
+            Debug.WriteLine(sql);
+            var reader = _connection.ExecuteReader(sql, parameters);
+            while (reader.Read())
+            {
+                yield return GetObjectMap<T>(reader);
+            }
+        }
+        
+        public T Get<T>(object id)
         {
             var type = typeof(T);
             using (var command = _connection.CreateCommand())
