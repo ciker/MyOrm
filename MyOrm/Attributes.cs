@@ -22,6 +22,17 @@ namespace MyOrm
         }
     }
 
+    [AttributeUsage(AttributeTargets.Property)]
+    public class ReferenceAttribute : Attribute
+    {
+        public string Name { get; private set; }
+
+        public ReferenceAttribute(string name)
+        {
+            Name = name;
+        }
+        public ReferenceAttribute() { }
+    }
 
     [AttributeUsage(AttributeTargets.Class)]
     public class TableAttribute : Attribute
@@ -32,8 +43,6 @@ namespace MyOrm
             Name = name;
         }
     }
-
-
 
     [AttributeUsage(AttributeTargets.Property)]
     public class FieldAttribute : Attribute

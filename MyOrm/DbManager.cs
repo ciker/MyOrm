@@ -47,7 +47,7 @@ namespace MyOrm
             var first = true;
             var sb = new StringBuilder();
             sb.AppendFormat("CREATE TABLE IF NOT EXISTS {0} (", GetTableName(type).Quoted());
-            
+
             foreach (var fi in GetFields(type))
             {
                 if (!first) { sb.Append(","); }
@@ -68,18 +68,44 @@ namespace MyOrm
         private static IEnumerable<FieldInfo> GetFields(Type type)
         {
             var nrow = 0;
-            return
-                (from pi in type.GetProperties().Where(c => c.GetCustomAttributes(typeof(FieldAttribute), false).Any())
-                 let fieldName = GetFieldName(pi)
-                 let fieldType = GetFieldType(pi)
-                 select new FieldInfo()
-                     {
-                         Cid = nrow++,
-                         Name = fieldName,
-                         Type = fieldType,
-                         NotNull = pi.IsNotNull() ? 1 : 0,
-                         Pk = pi.IsPrimaryKey() ? 1 : 0
-                     }).ToList();
+            var list = new List<FieldInfo>();
+            foreach (PropertyInfo c in type.GetProperties())
+            {
+                if (c.GetCustomAttributes(typeof(FieldAttribute), false).Any() ||
+                    c.GetCustomAttributes(typeof(ReferenceAttribute), false).Any())
+                {
+                    string fieldName = GetFieldName(c);
+                    string fieldType = GetFieldType(c);
+                    list.Add(new FieldInfo()
+                        {
+                            Cid = nrow++,
+                            Name = fieldName,
+                            Type = fieldType,
+                            NotNull = c.IsNotNull() ? 1 : 0,
+                            Pk = c.IsPrimaryKey() ? 1 : 0
+                        });
+                }
+            }
+            return list;
+        }
+
+        private static string GetFieldName(PropertyInfo pi)
+        {
+            var field = pi.Name;
+            var fa = pi.GetCustomAttributes(typeof(FieldAttribute), false);
+            if (fa.Any())
+            {
+                var name = ((FieldAttribute)fa[0]).Name;
+                if (!string.IsNullOrWhiteSpace(name))
+                    field = name;
+            }
+            fa = pi.GetCustomAttributes(typeof(ReferenceAttribute), false);
+            if (fa.Any())
+            {
+                GetPrimaryKeyField(pi.PropertyType)
+                fa[0]
+            }
+            return field;
         }
 
         private static string GetFieldType(PropertyInfo pi)
@@ -165,7 +191,7 @@ namespace MyOrm
                 yield return GetObjectMap<T>(reader);
             }
         }
-        
+
         public T Get<T>(object id)
         {
             var type = typeof(T);
@@ -218,18 +244,6 @@ namespace MyOrm
             return name;
         }
 
-        private static string GetFieldName(PropertyInfo pi)
-        {
-            var field = pi.Name;
-            var fa = pi.GetCustomAttributes(typeof(FieldAttribute), false);
-            if (fa.Any())
-            {
-                var name = ((FieldAttribute)fa[0]).Name;
-                if (!string.IsNullOrWhiteSpace(name))
-                    field = name;
-            }
-            return field;
-        }
 
         private static string GetPrimaryKeyField(Type type)
         {
